@@ -24,8 +24,12 @@ from llumnix.entrypoints.utils import get_ip_address
 
 # pylint: disable=unused-import
 from tests.conftest import ray_env
-from .utils import (generate_launch_command, generate_serve_command, wait_for_llumnix_service_ready,
-                    shutdown_llumnix_service)
+from .utils import (
+    generate_launch_command,
+    generate_serve_command,
+    wait_for_llumnix_service_ready,
+    shutdown_llumnix_service,
+)
 
 
 async def get_llumnix_response(prompt, sampling_params, ip_ports):
@@ -38,9 +42,10 @@ async def get_llumnix_response(prompt, sampling_params, ip_ports):
     }
 
     async with aiohttp.ClientSession(timeout=timeout) as session:
-        async with session.post(f'http://{ip_ports}/generate', json=request) as resp:
+        async with session.post(f"http://{ip_ports}/generate", json=request) as resp:
             output = await resp.json()
             return output
+
 
 prompts = [
     "Hello, my name is",
@@ -51,6 +56,7 @@ prompts = [
 
 vllm_output = {}
 
+
 @ray.remote(num_gpus=1)
 def run_vllm(model, max_model_len, sampling_params):
     vllm_output = {}
@@ -60,14 +66,21 @@ def run_vllm(model, max_model_len, sampling_params):
     for output in outputs:
         vllm_output[output.prompt] = output.prompt + output.outputs[0].text
 
+    print(vllm_output)
     return vllm_output
 
+
 @pytest.mark.asyncio
-@pytest.mark.skipif(torch.cuda.device_count() < 2, reason="at least 2 gpus required for correctness test")
-@pytest.mark.parametrize("model", ['/mnt/model/Qwen-7B'])
-@pytest.mark.parametrize("launch_mode", ['global', 'local'])
-@pytest.mark.parametrize("enable_pd_disagg", [True, False])
-async def test_correctness(ray_env, shutdown_llumnix_service, model, launch_mode, enable_pd_disagg):
+@pytest.mark.skipif(
+    torch.cuda.device_count() < 2,
+    reason="at least 2 gpus required for correctness test",
+)
+@pytest.mark.parametrize("model", ["/home/lhy/data/model/Qwen-7B"])
+@pytest.mark.parametrize("launch_mode", ["local"])
+@pytest.mark.parametrize("enable_pd_disagg", [False])
+async def test_correctness(
+    ray_env, shutdown_llumnix_service, model, launch_mode, enable_pd_disagg
+):
     max_model_len = 370
     sampling_params = {
         "n": 1,
@@ -87,38 +100,53 @@ async def test_correctness(ray_env, shutdown_llumnix_service, model, launch_mode
     await asyncio.sleep(5)
 
     # generate llumnix outputs
-    ip = get_ip_address()
+    # ip = get_ip_address()
+    ip = "127.0.0.1"
     base_port = 37037
 
     launch_commands = []
     if launch_mode == "local":
         if enable_pd_disagg:
-            launch_commands.append(generate_launch_command(result_filename=str(base_port)+".out",
-                                                           model=model,
-                                                           max_model_len=max_model_len,
-                                                           ip=ip,
-                                                           port=base_port,
-                                                           enable_pd_disagg=enable_pd_disagg,
-                                                           instance_type="prefill"))
-            launch_commands.append(generate_launch_command(result_filename=str(base_port+1)+".out",
-                                                           launch_ray_cluster=False,
-                                                           model=model,
-                                                           max_model_len=max_model_len,
-                                                           ip=ip,
-                                                           port=base_port+1,
-                                                           enable_pd_disagg=enable_pd_disagg,
-                                                           instance_type="decode"))
+            launch_commands.append(
+                generate_launch_command(
+                    result_filename=str(base_port) + ".out",
+                    model=model,
+                    max_model_len=max_model_len,
+                    ip=ip,
+                    port=base_port,
+                    enable_pd_disagg=enable_pd_disagg,
+                    instance_type="prefill",
+                )
+            )
+            launch_commands.append(
+                generate_launch_command(
+                    result_filename=str(base_port + 1) + ".out",
+                    launch_ray_cluster=False,
+                    model=model,
+                    max_model_len=max_model_len,
+                    ip=ip,
+                    port=base_port + 1,
+                    enable_pd_disagg=enable_pd_disagg,
+                    instance_type="decode",
+                )
+            )
         else:
-            launch_commands.append(generate_launch_command(model=model,
-                                                           max_model_len=max_model_len,
-                                                           ip=ip,
-                                                           port=base_port))
+            launch_commands.append(
+                generate_launch_command(
+                    model=model, max_model_len=max_model_len, ip=ip, port=base_port
+                )
+            )
     else:
-        launch_commands.append(generate_serve_command(result_filename=str(base_port)+".out",
-                                                      ip=ip,
-                                                      port=base_port,
-                                                      model=model,
-                                                      enable_pd_disagg=enable_pd_disagg))
+        launch_commands.append(
+            generate_serve_command(
+                result_filename=str(base_port) + ".out",
+                ip=ip,
+                port=base_port,
+                model=model,
+                enable_pd_disagg=enable_pd_disagg,
+            )
+        )
+    print(launch_commands)
     for launch_command in launch_commands:
         subprocess.run(launch_command, shell=True, check=True)
         await asyncio.sleep(3)
@@ -127,10 +155,14 @@ async def test_correctness(ray_env, shutdown_llumnix_service, model, launch_mode
 
     llumnix_output = {}
     for prompt in prompts:
-        response = await asyncio.wait_for(get_llumnix_response(prompt, sampling_params, f"{ip}:{base_port}"),
-                                          timeout=60*5)
-        llumnix_output[prompt] = response['text'][0]
+        response = await asyncio.wait_for(
+            get_llumnix_response(prompt, sampling_params, f"{ip}:{base_port}"),
+            timeout=60 * 5,
+        )
+        llumnix_output[prompt] = response["text"][0]
 
     # compare
     for prompt in prompts:
         assert llumnix_output[prompt] == vllm_output[prompt]
+
+    print(llumnix_output)

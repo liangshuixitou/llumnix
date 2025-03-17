@@ -29,25 +29,35 @@ from llumnix.utils import random_uuid
 def ray_start():
     for _ in range(5):
         subprocess.run(["ray", "stop"], check=False, stdout=subprocess.DEVNULL)
-        subprocess.run(["ray", "start", "--head", "--port=6379"], check=False, stdout=subprocess.DEVNULL)
+        subprocess.run(
+            ["ray", "start", "--head", "--port=6379"],
+            check=False,
+            stdout=subprocess.DEVNULL,
+        )
         time.sleep(5.0)
-        result = subprocess.run(["ray", "status"], check=False, capture_output=True, text=True)
+        result = subprocess.run(
+            ["ray", "status"], check=False, capture_output=True, text=True
+        )
         if result.returncode == 0:
             return
         print("Ray start failed, exception: {}".format(result.stderr.strip()))
         time.sleep(3.0)
     raise Exception("Ray start failed after 5 attempts.")
 
+
 def ray_stop():
     subprocess.run(["ray", "stop", "--force"], check=False, stdout=subprocess.DEVNULL)
+
 
 def cleanup_ray_env_func():
     try:
         actor_states = list_actors()
         for actor_state in actor_states:
             try:
-                if actor_state['name'] and actor_state['ray_namespace']:
-                    actor_handle = ray.get_actor(actor_state['name'], namespace=actor_state['ray_namespace'])
+                if actor_state["name"] and actor_state["ray_namespace"]:
+                    actor_handle = ray.get_actor(
+                        actor_state["name"], namespace=actor_state["ray_namespace"]
+                    )
                     ray.kill(actor_handle)
             # pylint: disable=bare-except
             except:
@@ -76,18 +86,25 @@ def cleanup_ray_env_func():
 
     alive_actor_states = list_actors(filters=[("state", "=", "ALIVE")])
     if alive_actor_states:
-        print("There are still alive actors, alive_actor_states: {}".format(alive_actor_states))
+        print(
+            "There are still alive actors, alive_actor_states: {}".format(
+                alive_actor_states
+            )
+        )
         try:
             ray.shutdown()
         # pylint: disable=bare-except
         except:
             pass
 
+
 def pytest_sessionstart(session):
     ray_start()
 
+
 def pytest_sessionfinish(session):
     ray_stop()
+
 
 @pytest.fixture
 def ray_env():
@@ -95,9 +112,12 @@ def ray_env():
     yield
     cleanup_ray_env_func()
 
+
 def backup_error_log(func_name):
-    curr_time = datetime.now().strftime('%Y_%m_%d_%H_%M_%S')
-    dst_dir = os.path.expanduser(f'/mnt/error_log/{curr_time}_{random_uuid()}')
+    curr_time = datetime.now().strftime("%Y_%m_%d_%H_%M_%S")
+    dst_dir = os.path.expanduser(
+        f"/home/lhy/data/error_log/{curr_time}_{random_uuid()}"
+    )
     os.makedirs(dst_dir, exist_ok=True)
 
     src_dir = os.getcwd()
@@ -111,11 +131,12 @@ def backup_error_log(func_name):
             src_file = os.path.join(src_dir, filename)
             shutil.copy(src_file, dst_dir)
 
-    file_path = os.path.join(dst_dir, 'test.info')
-    with open(file_path, 'w', encoding='utf-8') as file:
-        file.write(f'{func_name}')
+    file_path = os.path.join(dst_dir, "test.info")
+    with open(file_path, "w", encoding="utf-8") as file:
+        file.write(f"{func_name}")
 
     print(f"Backup error instance log to directory {dst_dir}")
+
 
 @pytest.hookimpl(tryfirst=True, hookwrapper=True)
 def pytest_runtest_makereport(item, call):

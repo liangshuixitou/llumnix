@@ -21,7 +21,7 @@ if __name__ == "__main__":
     parser.add_argument("--log-level", type=str)
     parser.add_argument('--disable-keep-serve-process-alive', action='store_true')
 
-    cli_args = add_cli_args(parser)
+    cli_args = add_cli_args(parser) 
     cfg = get_llumnix_config(cli_args.config_file, cli_args)
     entrypoints_args, manager_args, instance_args, engine_args = get_args(cfg, LaunchMode.GLOBAL, parser, cli_args)
 

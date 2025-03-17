@@ -17,8 +17,10 @@ from typing import List
 
 ROOT_DIR = os.path.dirname(__file__)
 
+
 def get_path(*filepath) -> str:
-    return os.path.join(ROOT_DIR, 'requirements', *filepath)
+    return os.path.join(ROOT_DIR, "requirements", *filepath)
+
 
 def get_requirements(engine: str) -> List[str]:
     """Get Python package dependencies from requirements.txt."""
@@ -26,32 +28,34 @@ def get_requirements(engine: str) -> List[str]:
         requirements = f.read().strip().split("\n")
     return requirements
 
+
 def readme():
-    with open('README.md', encoding='utf-8') as f:
+    with open("README.md", encoding="utf-8") as f:
         content = f.read()
     return content
 
+
 setup(
-    name='llumnix',
-    version='0.0.2',
-    python_requires='>=3.9.0, <3.11',
-    description='Efficient and easy multi-instance LLM serving',
+    name="llumnix",
+    version="0.0.2",
+    python_requires=">=3.9.0, <3.11",
+    description="Efficient and easy multi-instance LLM serving",
     long_description=readme(),
     long_description_content_type="text/markdown",
-    author='Llumnix Team',
-    url='https://github.com/AlibabaPAI/llumnix',
+    author="Llumnix Team",
+    url="https://github.com/AlibabaPAI/llumnix",
     license="Apache 2.0",
     packages=find_packages(),
     extras_require={
-        'vllm': get_requirements('vllm'),
-        'bladellm': get_requirements('bladellm'),
+        "vllm": get_requirements("vllm"),
+        "bladellm": get_requirements("bladellm"),
     },
     platforms=["all"],
     classifiers=[
-          'Programming Language :: Python',
-          'Programming Language :: Python :: 3.9',
-          'Programming Language :: Python :: 3.10',
-          "License :: OSI Approved :: Apache Software License",
-          "Topic :: Scientific/Engineering :: Artificial Intelligence",
-      ],
+        "Programming Language :: Python",
+        "Programming Language :: Python :: 3.9",
+        "Programming Language :: Python :: 3.10",
+        "License :: OSI Approved :: Apache Software License",
+        "Topic :: Scientific/Engineering :: Artificial Intelligence",
+    ],
 )
