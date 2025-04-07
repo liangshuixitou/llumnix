@@ -150,7 +150,7 @@ async def test_simple_benchmark(ray_env, shutdown_llumnix_service, model, launch
             model=model,
             num_prompts=num_prompts,
             dataset_type="sharegpt",
-            dataset_path="/mnt/dataset/sharegpt_gpt4/sharegpt_gpt4.jsonl",
+            dataset_path="/home/l1hy/data/dataset/sharegpt4/sharegpt_gpt4.jsonl",
             qps=5,
             results_filename=f"{base_port + i}.out"
         )
