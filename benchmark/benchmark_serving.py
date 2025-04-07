@@ -622,8 +622,8 @@ async def benchmark(
         log_filename,
     )
     save_all_decode_token_latencies_npy(m._all_token_latencies, log_filename)
-    # avg_instance_num = plot_instance(log_filename)
-    avg_instance_num = 0.0
+    avg_instance_num = plot_instance(log_filename)
+    # avg_instance_num = 0.0
 
     return (
         throughput,
