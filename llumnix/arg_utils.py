@@ -415,7 +415,7 @@ class InstanceArgs:
                             help='enable simulator mode')
         parser.add_argument('--dispatch-load-metric',
                             type=str,
-                            choices=['remaining_steps', 'usage_ratio'],
+                            choices=['remaining_steps', 'usage_ratio', 'virtual_usage'],
                             help='instance dispatch load metric')
         parser.add_argument('--migration-load-metric',
                             type=str,

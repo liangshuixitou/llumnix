@@ -70,22 +70,40 @@ class InstanceInfo:
     profiling_data: Tuple[str, int, int, float] = None
 
     def __post_init__(self) -> None:
-        self.num_available_gpu_blocks = self.num_free_gpu_blocks - self.num_watermark_blocks
-        self.num_available_gpu_blocks_waiting = self.num_available_gpu_blocks - self.num_blocks_all_waiting_requests
+        self.num_available_gpu_blocks = (
+            self.num_free_gpu_blocks - self.num_watermark_blocks
+        )
+        self.num_available_gpu_blocks_waiting = (
+            self.num_available_gpu_blocks - self.num_blocks_all_waiting_requests
+        )
 
 
 class InstanceLoadCalculator:
-    def __init__(self, dispatch_load_metric: str, migration_load_metric: str, enable_defrag: bool) -> None:
+    def __init__(
+        self, dispatch_load_metric: str, migration_load_metric: str, enable_defrag: bool
+    ) -> None:
         self.dispatch_load_calculator = DispatchLoadComputation(migration_load_metric)
-        self.migration_load_calculator = MigrationLoadComputation(dispatch_load_metric, enable_defrag)
+        self.migration_load_calculator = MigrationLoadComputation(
+            dispatch_load_metric, enable_defrag
+        )
 
     def compute_instance_load(self, instance_info: InstanceInfo):
-        instance_info.dispatch_load_metric = self.dispatch_load_calculator.compute_instance_load(instance_info)
-        instance_info.migration_load_metric = self.migration_load_calculator.compute_instance_load(instance_info)
-        instance_info.migration_load_metric_after_migrate_out = self.migration_load_calculator.\
-            compute_instance_load_after_migrate(instance_info, is_migrate_in=False)
-        instance_info.migration_load_metric_after_migrate_in = self.migration_load_calculator.\
-            compute_instance_load_after_migrate(instance_info, is_migrate_in=True)
+        instance_info.dispatch_load_metric = (
+            self.dispatch_load_calculator.compute_instance_load(instance_info)
+        )
+        instance_info.migration_load_metric = (
+            self.migration_load_calculator.compute_instance_load(instance_info)
+        )
+        instance_info.migration_load_metric_after_migrate_out = (
+            self.migration_load_calculator.compute_instance_load_after_migrate(
+                instance_info, is_migrate_in=False
+            )
+        )
+        instance_info.migration_load_metric_after_migrate_in = (
+            self.migration_load_calculator.compute_instance_load_after_migrate(
+                instance_info, is_migrate_in=True
+            )
+        )
 
 
 class LoadComputationStrategy(ABC):
@@ -101,38 +119,85 @@ class LoadComputationStrategy(ABC):
 class DispatchLoadComputation(LoadComputationStrategy):
     def compute_instance_load(self, instance_info: InstanceInfo) -> float:
         instance_load = -np.inf
-        if self.load_metric == 'usage_ratio':
-            instance_load = (instance_info.num_used_gpu_blocks + instance_info.num_blocks_all_waiting_requests) \
-                / instance_info.num_total_gpu_blocks
-        elif self.load_metric == 'remaining_steps':
-            num_requests = instance_info.num_running_requests + instance_info.num_waiting_requests
-            num_available_gpu_blocks = instance_info.num_available_gpu_blocks - instance_info.num_blocks_all_waiting_requests
+        if self.load_metric == "usage_ratio":
+            instance_load = (
+                instance_info.num_used_gpu_blocks
+                + instance_info.num_blocks_all_waiting_requests
+            ) / instance_info.num_total_gpu_blocks
+        elif self.load_metric == "remaining_steps":
+            num_requests = (
+                instance_info.num_running_requests + instance_info.num_waiting_requests
+            )
+            num_available_gpu_blocks = (
+                instance_info.num_available_gpu_blocks
+                - instance_info.num_blocks_all_waiting_requests
+            )
             if num_requests == 0:
                 return -np.inf
-            instance_load = (num_available_gpu_blocks / num_requests)*(-1)
+            instance_load = (num_available_gpu_blocks / num_requests) * (-1)
+        elif self.load_metric == "virtual_usage":
+            # 1. 计算资源利用率
+            resource_utilization = (
+                instance_info.num_used_gpu_blocks / instance_info.num_total_gpu_blocks
+            )
+
+            # 2. 计算请求处理效率
+            total_requests = (
+                instance_info.num_running_requests + instance_info.num_waiting_requests
+            )
+            if total_requests == 0:
+                return -np.inf
+            request_efficiency = instance_info.num_running_requests / total_requests
+
+            # 3. 计算等待队列效率
+            if instance_info.num_waiting_requests > 0:
+                waiting_efficiency = 1.0 - (
+                    instance_info.waiting_time_first_waiting_request / 1000.0
+                )  # 归一化等待时间
+            else:
+                waiting_efficiency = 1.0
+            # 4. 计算缓存使用效率
+            cache_efficiency = 1.0 - instance_info.gpu_cache_usage
+            # 5. 综合计算效率指标
+            instance_load = (
+                resource_utilization * 0.3
+                + request_efficiency * 0.3
+                + waiting_efficiency * 0.2
+                + cache_efficiency * 0.2
+            )
         return instance_load
 
 
 class MigrationLoadComputation(LoadComputationStrategy):
-    def compute_instance_load_after_migrate(self, instance_info: InstanceInfo, is_migrate_in: bool) -> float:
+    def compute_instance_load_after_migrate(
+        self, instance_info: InstanceInfo, is_migrate_in: bool
+    ) -> float:
         instance_info_after_migrate = copy.deepcopy(instance_info)
-        num_blocks_last_running_request = instance_info_after_migrate.num_blocks_last_running_request
+        num_blocks_last_running_request = (
+            instance_info_after_migrate.num_blocks_last_running_request
+        )
 
         if is_migrate_in:
             instance_info_after_migrate.num_running_requests += 1
-            instance_info_after_migrate.num_available_gpu_blocks -= num_blocks_last_running_request
+            instance_info_after_migrate.num_available_gpu_blocks -= (
+                num_blocks_last_running_request
+            )
         else:
             instance_info_after_migrate.num_running_requests -= 1
-            instance_info_after_migrate.num_available_gpu_blocks += num_blocks_last_running_request
+            instance_info_after_migrate.num_available_gpu_blocks += (
+                num_blocks_last_running_request
+            )
 
         return self.compute_instance_load(instance_info_after_migrate)
 
     def compute_instance_load(self, instance_info: InstanceInfo) -> float:
         instance_load = -np.inf
-        if self.load_metric == 'usage_ratio':
-            instance_load = (instance_info.num_used_gpu_blocks + instance_info.num_blocks_first_waiting_request) \
-                / instance_info.num_total_gpu_blocks
-        elif self.load_metric == 'remaining_steps':
+        if self.load_metric == "usage_ratio":
+            instance_load = (
+                instance_info.num_used_gpu_blocks
+                + instance_info.num_blocks_first_waiting_request
+            ) / instance_info.num_total_gpu_blocks
+        elif self.load_metric == "remaining_steps":
             if not self.enable_defrag:
                 num_requests = instance_info.num_running_requests
                 num_available_gpu_blocks = instance_info.num_available_gpu_blocks
@@ -140,11 +205,15 @@ class MigrationLoadComputation(LoadComputationStrategy):
                 num_requests = instance_info.num_running_requests
                 if instance_info.num_waiting_requests != 0:
                     num_requests += 1
-                num_available_gpu_blocks = instance_info.num_available_gpu_blocks - \
-                    instance_info.num_blocks_first_waiting_request
+                num_available_gpu_blocks = (
+                    instance_info.num_available_gpu_blocks
+                    - instance_info.num_blocks_first_waiting_request
+                )
             if num_requests == 0:
                 return -np.inf
             instance_load = (num_available_gpu_blocks / num_requests) * (-1)
+        elif self.load_metric == "remaining_tokens":
+            instance_load = instance_info.num_available_gpu_blocks
         return instance_load
 
 
@@ -157,4 +226,3 @@ class ScalingLoadComputation(LoadComputationStrategy):
 
     def compute_instance_load(self, instance_info: InstanceInfo) -> float:
         return self.load_calculator.compute_instance_load(instance_info)
-    

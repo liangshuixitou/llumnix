@@ -10,11 +10,11 @@ BENCH_TEST_TIMEOUT_MINS = 30
 
 
 device_count = torch.cuda.device_count()
-ip = "127.0.1.1"
+ip = "10.0.0.214"
 base_port = 37000
-model = "/data/l1hy/model/Qwen-7B"
-num_prompts = 1000
-qps = 5
+model = "/home/ubuntu/data/model/Qwen-7B"
+num_prompts = 300
+qps = 1.5
 
 def run_bench_command(command):
     process = subprocess.Popen(command, shell=True)
@@ -27,7 +27,7 @@ for i in range(1):
         model=model,
         num_prompts=num_prompts,
         dataset_type="sharegpt",
-        dataset_path="/data/l1hy/dataset/sharegpt4/sharegpt_gpt4.jsonl",
+        dataset_path="/home/ubuntu/data/dataset/sharegpt4/sharegpt_gpt4.jsonl",
         qps=qps,
         results_filename=f"{base_port + i}.out"
     )
