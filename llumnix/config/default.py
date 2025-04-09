@@ -123,7 +123,7 @@ _C.INSTANCE.PROFILING_RESULT_FILE_PATH = None
 
 # ------------------------- LOAD METRICS CONFIGURATION ------------------------
 # Instance dispatch load metric
-_C.INSTANCE.DISPATCH_LOAD_METRIC = 'remaining_steps'
+_C.INSTANCE.DISPATCH_LOAD_METRIC = 'virtual_usage'
 # Instance migration load metric
 _C.INSTANCE.MIGRATION_LOAD_METRIC = 'remaining_steps'
 
