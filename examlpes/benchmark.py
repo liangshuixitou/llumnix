@@ -13,6 +13,7 @@ device_count = torch.cuda.device_count()
 ip = "36.103.199.235"
 base_port = 37001
 model = "/home/ubuntu/data/model/Qwen-7B"
+
 num_prompts = 500
 qps = 2.5
 

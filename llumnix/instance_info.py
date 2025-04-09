@@ -172,7 +172,7 @@ class DispatchLoadComputation(LoadComputationStrategy):
             performance_pressure = 0.0
             if instance_info.profiling_data:
                 _, num_seqs, total_seq_len, latency = instance_info.profiling_data
-                if latency > 0 and num_seqs > 0:
+                if latency and num_seqs and latency > 0 and num_seqs > 0:
                     # 计算每个token的平均处理时间（毫秒）
                     avg_token_latency = (latency * 1000) / (total_seq_len + 1e-6)
                     # 计算序列密度（每个序列的平均长度）
@@ -192,7 +192,7 @@ class DispatchLoadComputation(LoadComputationStrategy):
                 gpu_usage * 0.30  # GPU使用率权重 [0,1]
                 + waiting_pressure * 0.20  # 等待压力权重 [0,1]
                 + length_pressure * 0.15  # 长度压力权重 [0,1]
-                + completion_pressure * 0.10  # 完成压力权重 [0,1]
+                # + completion_pressure * 0.0  # 完成压力权重 [0,1]
                 + performance_pressure * 0.15  # 性能压力权重 [0,1]
             )
         elif self.load_metric == "remaining_steps":
