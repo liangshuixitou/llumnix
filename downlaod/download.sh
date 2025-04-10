@@ -9,7 +9,7 @@ ray start --head --port=6379 --dashboard-host=0.0.0.0 --node-ip-address=36.103.1
 ray start --address=36.103.199.235:6379 --node-ip-address=43.143.179.203
 
 export RAY_DEDUP_LOGS=0 && python -m llumnix.entrypoints.vllm.serve --host 0.0.0.0 \
---port 37000  --model /home/ubuntu/data/model/Qwen2.5-3B \
+--port 37000  --model /data/model/Qwen2.5-3B \
 --worker-use-ray --max-model-len 4096 \
 --dispatch-policy load --trust-remote-code \
 --dispatch-load-metric remaining_steps \
@@ -20,7 +20,7 @@ export RAY_DEDUP_LOGS=0 && python -m llumnix.entrypoints.vllm.serve --host 0.0.0
 --enable-port-increment --max-instances 3 
 
 export RAY_DEDUP_LOGS=0 && python -m llumnix.entrypoints.vllm.serve --host 0.0.0.0 \
---port 37000  --model /home/ubuntu/data/model/Qwen2.5-3B \
+--port 37000  --model /data/model/Qwen2.5-3B \
 --worker-use-ray --max-model-len 4096 \
 --dispatch-policy rr --trust-remote-code \
 --request-migration-policy SR --migration-backend gloo \

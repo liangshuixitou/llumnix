@@ -154,8 +154,11 @@ class DispatchLoadComputation(LoadComputationStrategy):
             all_seq_lens = (
                 instance_info.running_seq_lens + instance_info.waiting_seq_lens
             )
+            if len(all_seq_lens) == 0:
+                return -np.inf
             avg_request_len = np.mean(all_seq_lens) if all_seq_lens else 0
-
+   
+            logger.info(f"available_gpu_blocks: {num_available_gpu_blocks}, num_requsets: {num_requests}, avg_request_lens{avg_request_len}")
             instance_load = (
                 (-1) * num_available_gpu_blocks / (num_requests * avg_request_len)
             )
