@@ -162,13 +162,21 @@ class DispatchLoadComputation(LoadComputationStrategy):
                 * instance_info.num_used_gpu_blocks
                 / instance_info.num_running_requests
             )
-            instance_load = (
+            instance_load = (-1) * (
                 min(num_available_gpu_blocks, max_used_gpu_blocks)
                 * throughput
                 / max(num_requests, max_running_requests)
             )
+            logger.info(
+                f"instance_load: {instance_load}"
+                f"num_available_gpu_blocks: {num_available_gpu_blocks}"
+                f"max_used_gpu_blocks: {max_used_gpu_blocks}"
+                f"throughput: {throughput}"
+                f"num_requests: {num_requests}"
+                f"max_running_requests: {max_running_requests}"
+            )
 
-        return (-1) * instance_load
+        return instance_load
 
 
 class MigrationLoadComputation(LoadComputationStrategy):
