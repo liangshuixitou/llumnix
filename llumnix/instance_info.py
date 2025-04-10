@@ -155,13 +155,11 @@ class DispatchLoadComputation(LoadComputationStrategy):
                 return -np.inf
             max_used_gpu_blocks = max_running_requests * avg_request_gpu_blocks
 
-
             num_available_gpu_blocks = (
                 max(max_used_gpu_blocks, instance_info.num_total_gpu_blocks)
                 - instance_info.num_used_gpu_blocks
                 - instance_info.num_blocks_all_waiting_requests
             )
-
 
             instance_load = (-1) * (
                 min(num_available_gpu_blocks, max_used_gpu_blocks)

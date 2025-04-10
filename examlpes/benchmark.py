@@ -14,7 +14,7 @@ ip = "127.0.1.1"
 base_port = 37001
 model = "/data/model/Qwen2.5-3B"
 num_prompts = 1000
-qps = 60
+qps = 40
 verbose = False
 
 

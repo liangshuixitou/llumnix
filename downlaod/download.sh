@@ -39,7 +39,8 @@ export RAY_DEDUP_LOGS=0 && python -m llumnix.entrypoints.vllm.serve --host 0.0.0
 --migration-buffer-blocks 32 --tensor-parallel-size 1 \
 --request-output-queue-port 38234 \
 --max-num-batched-tokens 16000 \
---enable-port-increment --max-instances 3 
+--enable-port-increment --max-instances 3 \
+2>&1 | tee vllm.serve.log
 
 
 
