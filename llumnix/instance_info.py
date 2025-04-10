@@ -141,27 +141,30 @@ class DispatchLoadComputation(LoadComputationStrategy):
                 return -np.inf
             instance_load = (num_available_gpu_blocks / num_requests) * (-1)
         elif self.load_metric == "virtual_usage":
-            num_requests = (
-                instance_info.num_running_requests + instance_info.num_waiting_requests
-            )
-            num_available_gpu_blocks = (
-                instance_info.num_available_gpu_blocks
-                - instance_info.num_blocks_all_waiting_requests
-            )
-            if num_requests == 0:
-                return -np.inf
-
             max_running_requests = 256
             if instance_info.num_total_gpu_blocks > 10000:
                 throughput = 1
             else:
                 throughput = 0.8
 
-            max_used_gpu_blocks = (
-                max_running_requests
-                * instance_info.num_used_gpu_blocks
-                / instance_info.num_running_requests
+            avg_request_gpu_blocks = (
+                instance_info.num_used_gpu_blocks / instance_info.num_running_requests
             )
+            if avg_request_gpu_blocks == 0:
+                return -np.inf
+            max_used_gpu_blocks = max_running_requests * avg_request_gpu_blocks
+
+            num_requests = (
+                instance_info.num_running_requests + instance_info.num_waiting_requests
+            )
+            num_available_gpu_blocks = (
+                max(max_used_gpu_blocks, instance_info.num_total_gpu_blocks)
+                - instance_info.num_used_gpu_blocks
+                - instance_info.num_blocks_all_waiting_requests
+            )
+            if num_requests == 0:
+                return -np.inf
+
             instance_load = (-1) * (
                 min(num_available_gpu_blocks, max_used_gpu_blocks)
                 * throughput
