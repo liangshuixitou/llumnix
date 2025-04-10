@@ -141,6 +141,11 @@ class DispatchLoadComputation(LoadComputationStrategy):
                 return -np.inf
             instance_load = (num_available_gpu_blocks / num_requests) * (-1)
         elif self.load_metric == "virtual_usage":
+            if instance_info.num_total_gpu_blocks > 10000:
+                throughput = 1.0
+            else:
+                throughput = 0.8
+
             num_requests = (
                 instance_info.num_running_requests + instance_info.num_waiting_requests
             )
@@ -160,7 +165,8 @@ class DispatchLoadComputation(LoadComputationStrategy):
             )
 
             instance_load = (-1) * (
-                num_available_gpu_blocks / max(num_requests, max_running_requests)
+                num_available_gpu_blocks
+                / (max(num_requests, max_running_requests) * throughput)
             )
             logger.info(
                 f"instance_load: {instance_load} "
