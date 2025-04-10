@@ -151,15 +151,24 @@ class DispatchLoadComputation(LoadComputationStrategy):
             if num_requests == 0:
                 return -np.inf
 
+            max_running_requests = 256
             if instance_info.num_total_gpu_blocks > 10000:
                 throughput = 1
             else:
                 throughput = 0.8
+
+            max_used_gpu_blocks = (
+                max_running_requests
+                * instance_info.num_used_gpu_blocks
+                / instance_info.num_running_requests
+            )
             instance_load = (
-                (-1) * num_available_gpu_blocks * throughput / (num_requests)
+                min(num_available_gpu_blocks, max_used_gpu_blocks)
+                * throughput
+                / max(num_requests, max_running_requests)
             )
 
-        return instance_load
+        return (-1) * instance_load
 
 
 class MigrationLoadComputation(LoadComputationStrategy):
