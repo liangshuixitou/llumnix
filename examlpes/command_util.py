@@ -123,7 +123,8 @@ def generate_bench_command(ip_ports: str,
                            num_prompts: int,
                            dataset_type: str,
                            dataset_path: str,
-                           qps: int,
+                           qps: float,
+                           verbose: bool = False,
                            results_filename: str = "",
                            query_distribution: str = "poisson",
                            coefficient_variation: float = 1.0,
@@ -139,6 +140,7 @@ def generate_bench_command(ip_ports: str,
         f"--dataset_type {dataset_type} "
         f"--dataset_path {dataset_path} "
         f"--qps {qps} "
+        f"{'-v ' if verbose else ''} "
         f"--distribution {query_distribution} "
         f"--coefficient_variation {coefficient_variation} "
         f"--priority_ratio {priority_ratio} "

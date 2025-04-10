@@ -13,9 +13,10 @@ device_count = torch.cuda.device_count()
 ip = "36.103.199.235"
 base_port = 37001
 model = "/home/ubuntu/data/model/Qwen-7B"
-
 num_prompts = 500
 qps = 2.5
+verbose = False
+
 
 def run_bench_command(command):
     process = subprocess.Popen(command, shell=True)
@@ -32,6 +33,7 @@ for i in range(1):
         dataset_path="/home/ubuntu/data/dataset/sharegpt4/sharegpt_gpt4.jsonl",
         qps=qps,
         results_filename=f"{base_port + i}.out",
+        verbose=verbose,
     )
     print(bench_command)
     tasks.append(bench_command)

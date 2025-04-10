@@ -127,24 +127,23 @@ class DispatchLoadComputation(LoadComputationStrategy):
                 instance_info.num_used_gpu_blocks
                 + instance_info.num_blocks_all_waiting_requests
             ) / instance_info.num_total_gpu_blocks
+        elif self.load_metric == "remaining_steps":
+            num_requests = (
+                instance_info.num_running_requests + instance_info.num_waiting_requests
+            )
+            num_available_gpu_blocks = (
+                instance_info.num_available_gpu_blocks
+                - instance_info.num_blocks_all_waiting_requests
+            )
+            if num_requests == 0:
+                return -np.inf
+            instance_load = (num_available_gpu_blocks / num_requests) * (-1)
         elif self.load_metric == "virtual_usage":
             # GPU资源使用率（含等待块）[0,1]
             gpu_usage = (
                 instance_info.num_used_gpu_blocks
                 + instance_info.num_blocks_all_waiting_requests
             ) / instance_info.num_total_gpu_blocks
-
-            # 等待请求压力（归一化等待时间与可用资源）[0,1]
-            if instance_info.num_available_gpu_blocks_waiting > 0:
-                # 假设合理的等待时间范围是0-60秒
-                normalized_waiting_time = min(
-                    instance_info.waiting_time_first_waiting_request / 60.0, 1.0
-                )
-                waiting_pressure = (
-                    instance_info.num_waiting_requests * normalized_waiting_time
-                ) / (instance_info.num_available_gpu_blocks_waiting + 1e-6)
-            else:
-                waiting_pressure = 1.0  # 如果没有可用块，压力最大
 
             # 运行请求长度压力（考虑序列长度分布）[0,1]
             if instance_info.running_seq_lens:
@@ -161,51 +160,25 @@ class DispatchLoadComputation(LoadComputationStrategy):
             else:
                 length_pressure = 0
 
-            # 完成请求压力（考虑系统稳定性）[0,1]
-            completion_pressure = min(
-                instance_info.num_killed_requests
-                / (instance_info.num_running_requests + 1e-6),
-                1.0,
-            )
-
-            # 性能压力（基于profiling数据）[0,1]
-            performance_pressure = 0.0
+            # 吞吐量压力 [0,1]
+            throughput_pressure = 0.0
             if instance_info.profiling_data:
                 _, num_seqs, total_seq_len, latency = instance_info.profiling_data
                 if latency and num_seqs and latency > 0 and num_seqs > 0:
-                    # 计算每个token的平均处理时间（毫秒）
-                    avg_token_latency = (latency * 1000) / (total_seq_len + 1e-6)
-                    # 计算序列密度（每个序列的平均长度）
-                    seq_density = total_seq_len / (num_seqs + 1e-6)
-
-                    # 归一化处理时间和序列密度
-                    normalized_latency = min(avg_token_latency / 10.0, 1.0)
-                    normalized_density = min(seq_density / 1000.0, 1.0)
-
-                    # 性能压力综合考虑归一化后的延迟和序列密度
-                    performance_pressure = (
-                        normalized_latency * normalized_density
-                    ) / 1.0  # 已经是[0,1]范围
+                    # 计算每秒处理的token数
+                    tokens_per_second = (total_seq_len * 1000) / (latency + 1e-6)
+                    # 假设合理的吞吐量范围是0-1000 tokens/s
+                    normalized_throughput = min(tokens_per_second / 1000.0, 1.0)
+                    # 吞吐量越高，压力越小
+                    throughput_pressure = 1.0 - normalized_throughput
 
             # 综合权重组合（所有指标都在[0,1]范围内）
             instance_load = (
-                gpu_usage * 0.30  # GPU使用率权重 [0,1]
-                + waiting_pressure * 0.20  # 等待压力权重 [0,1]
-                + length_pressure * 0.15  # 长度压力权重 [0,1]
-                # + completion_pressure * 0.0  # 完成压力权重 [0,1]
-                + performance_pressure * 0.15  # 性能压力权重 [0,1]
+                gpu_usage * 0.4  # GPU使用率权重
+                + length_pressure * 0.3  # 长度压力权重
+                + throughput_pressure * 0.3  # 吞吐量压力权重
             )
-        elif self.load_metric == "remaining_steps":
-            num_requests = (
-                instance_info.num_running_requests + instance_info.num_waiting_requests
-            )
-            num_available_gpu_blocks = (
-                instance_info.num_available_gpu_blocks
-                - instance_info.num_blocks_all_waiting_requests
-            )
-            if num_requests == 0:
-                return -np.inf
-            instance_load = (num_available_gpu_blocks / num_requests) * (-1)
+
         return instance_load
 
 
