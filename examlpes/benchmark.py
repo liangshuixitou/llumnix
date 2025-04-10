@@ -15,7 +15,7 @@ base_port = 37001
 model = "/home/ubuntu/data/model/Qwen-7B"
 num_prompts = 500
 qps = 2.5
-verbose = False
+verbose = True
 
 
 def run_bench_command(command):

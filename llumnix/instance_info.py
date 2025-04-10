@@ -17,6 +17,7 @@ from dataclasses import dataclass, field
 from enum import Enum
 from typing import List, Tuple
 import numpy as np
+import time
 
 from llumnix.logging.logger import init_logger
 from llumnix.llumlet.request import RequestInferenceType
@@ -40,6 +41,7 @@ class InstanceInfo:
     num_batched_tokens: int = None
     num_seqs = None
     running_seq_lens: List[int] = field(default_factory=list)
+    waiting_seq_lens: List[int] = field(default_factory=list)
     last_inference_latency: float = None
     inference_type: RequestInferenceType = None
 
@@ -139,44 +141,23 @@ class DispatchLoadComputation(LoadComputationStrategy):
                 return -np.inf
             instance_load = (num_available_gpu_blocks / num_requests) * (-1)
         elif self.load_metric == "virtual_usage":
-            # GPU资源使用率（含等待块）[0,1]
-            gpu_usage = (
-                instance_info.num_used_gpu_blocks
-                + instance_info.num_blocks_all_waiting_requests
-            ) / instance_info.num_total_gpu_blocks
+            num_requests = (
+                instance_info.num_running_requests + instance_info.num_waiting_requests
+            )
+            num_available_gpu_blocks = (
+                instance_info.num_available_gpu_blocks
+                - instance_info.num_blocks_all_waiting_requests
+            )
+            if num_requests == 0:
+                return -np.inf
+            # 正确的方式是先将两个列表合并，再计算平均值
+            all_seq_lens = (
+                instance_info.running_seq_lens + instance_info.waiting_seq_lens
+            )
+            avg_request_len = np.mean(all_seq_lens) if all_seq_lens else 0
 
-            # 运行请求长度压力（考虑序列长度分布）[0,1]
-            if instance_info.running_seq_lens:
-                avg_running_len = sum(instance_info.running_seq_lens) / len(
-                    instance_info.running_seq_lens
-                )
-                max_running_len = max(instance_info.running_seq_lens)
-                # 假设合理的序列长度范围是0-1000
-                normalized_avg_len = min(avg_running_len / 1000.0, 1.0)
-                normalized_max_len = min(max_running_len / 1000.0, 1.0)
-                length_pressure = (
-                    normalized_avg_len + 0.2 * normalized_max_len
-                ) / 1.2  # 归一化到[0,1]
-            else:
-                length_pressure = 0
-
-            # 吞吐量压力 [0,1]
-            throughput_pressure = 0.0
-            if instance_info.profiling_data:
-                _, num_seqs, total_seq_len, latency = instance_info.profiling_data
-                if latency and num_seqs and latency > 0 and num_seqs > 0:
-                    # 计算每秒处理的token数
-                    tokens_per_second = (total_seq_len * 1000) / (latency + 1e-6)
-                    # 假设合理的吞吐量范围是0-1000 tokens/s
-                    normalized_throughput = min(tokens_per_second / 1000.0, 1.0)
-                    # 吞吐量越高，压力越小
-                    throughput_pressure = 1.0 - normalized_throughput
-
-            # 综合权重组合（所有指标都在[0,1]范围内）
             instance_load = (
-                gpu_usage * 0.4  # GPU使用率权重
-                + length_pressure * 0.3  # 长度压力权重
-                + throughput_pressure * 0.3  # 吞吐量压力权重
+                (-1) * num_available_gpu_blocks / (num_requests * avg_request_len)
             )
 
         return instance_load

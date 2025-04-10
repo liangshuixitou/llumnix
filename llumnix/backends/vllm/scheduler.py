@@ -287,6 +287,10 @@ class SchedulerLlumnix(Scheduler):
                 [seq.get_len() for seq in seq_group.get_seqs()]
             )
             instance_info.num_seqs = len(instance_info.running_seq_lens)
+        for seq_group in self.waiting:
+            instance_info.waiting_seq_lens.extend(
+                [seq.get_len() for seq in seq_group.get_seqs()]
+            )
         if scheduled_seq_groups:
             instance_info.inference_type = scheduled_seq_groups[-1].inference_type
         # TODO(ZeldaHuang) adapt chunked-prefill
