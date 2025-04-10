@@ -147,10 +147,6 @@ class DispatchLoadComputation(LoadComputationStrategy):
             if num_requests == 0:
                 return -np.inf
             max_running_requests = 256
-            if instance_info.num_total_gpu_blocks > 10000:
-                throughput = 1
-            else:
-                throughput = 0.8
 
             avg_request_gpu_blocks = (
                 instance_info.num_used_gpu_blocks / instance_info.num_running_requests
@@ -169,15 +165,13 @@ class DispatchLoadComputation(LoadComputationStrategy):
 
             instance_load = (-1) * (
                 min(num_available_gpu_blocks, max_used_gpu_blocks)
-                * throughput
                 / max(num_requests, max_running_requests)
             )
             logger.info(
-                f"instance_load: {instance_load}"
-                f"num_available_gpu_blocks: {num_available_gpu_blocks}"
-                f"max_used_gpu_blocks: {max_used_gpu_blocks}"
-                f"throughput: {throughput}"
-                f"num_requests: {num_requests}"
+                f"instance_load: {instance_load} "
+                f"num_available_gpu_blocks: {num_available_gpu_blocks} "
+                f"max_used_gpu_blocks: {max_used_gpu_blocks} "
+                f"num_requests: {num_requests} "
                 f"max_running_requests: {max_running_requests}"
             )
 
