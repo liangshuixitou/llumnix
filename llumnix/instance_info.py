@@ -150,13 +150,13 @@ class DispatchLoadComputation(LoadComputationStrategy):
             )
             if num_requests == 0:
                 return -np.inf
-            
+
             if instance_info.num_total_gpu_blocks > 10000:
                 throughput = 1
             else:
                 throughput = 0.8
             instance_load = (
-                (-1) * num_available_gpu_blocks / (num_requests * throughput)
+                (-1) * num_available_gpu_blocks * throughput / (num_requests)
             )
 
         return instance_load
