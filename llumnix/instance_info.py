@@ -151,7 +151,7 @@ class DispatchLoadComputation(LoadComputationStrategy):
             if instance_info.num_total_gpu_blocks > 10000:
                 throughput = 1.0
             else:
-                throughput = 0.7
+                throughput = 0.6
 
             num_requests = (
                 instance_info.num_running_requests + instance_info.num_waiting_requests
@@ -160,7 +160,7 @@ class DispatchLoadComputation(LoadComputationStrategy):
                 return -np.inf
             max_running_requests = 256
 
-            max_used_gpu_blocks = 12000
+            max_used_gpu_blocks = 10000 + 125 * instance_info.num_waiting_requests
             max_used_gpu_blocks = min(
                 max_used_gpu_blocks, instance_info.num_total_gpu_blocks
             )
