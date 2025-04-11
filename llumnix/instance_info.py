@@ -149,7 +149,7 @@ class DispatchLoadComputation(LoadComputationStrategy):
             instance_load = (num_available_gpu_blocks / num_requests) * (-1)
         elif self.load_metric == "virtual_usage":
             if instance_info.num_total_gpu_blocks > 20000:
-                throughput = 2.3
+                throughput = 1.5
             else:
                 throughput = 1.0
 
