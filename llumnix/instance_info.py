@@ -171,8 +171,8 @@ class DispatchLoadComputation(LoadComputationStrategy):
                 - instance_info.num_blocks_all_waiting_requests
             )
 
-            instance_load = min(num_requests, max_running_requests) / (
-                num_available_gpu_blocks * throughput
+            instance_load = -(num_available_gpu_blocks * throughput) / min(
+                num_requests, max_running_requests
             )
 
             logger.info(
