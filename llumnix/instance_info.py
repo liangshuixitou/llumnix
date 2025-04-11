@@ -172,6 +172,20 @@ class DispatchLoadComputation(LoadComputationStrategy):
             instance_load = (1 + compute_load * compute_weight) * (
                 1 + memory_weight * memory_load
             )
+            logger.info(
+                f"Instance Load Calculation:\n"
+                f"  Throughput: {throughput}\n"
+                f"  Num Requests: {num_requests}\n"
+                f"  Compute Load: {compute_load} (requests/256)\n"
+                f"  Compute Weight: {compute_weight}\n"
+                f"  Memory Use Ratio: {memory_use_ratio:.3f}\n"
+                f"  Memory Load: {memory_load:.3f}\n"
+                f"  Memory Weight: {memory_weight:.3f}\n"
+                f"  Final Instance Load: {instance_load:.3f}\n"
+                f"  Components:\n"
+                f"    - Compute Component: {1 + compute_load * compute_weight:.3f}\n"
+                f"    - Memory Component: {1 + memory_weight * memory_load:.3f}"
+            )
         return instance_load
 
 
