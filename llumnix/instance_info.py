@@ -140,6 +140,7 @@ class DispatchLoadComputation(LoadComputationStrategy):
             if num_requests == 0:
                 return -np.inf
             logger.info(
+                f"instance_load: {instance_load} "
                 f"num_available_gpu_blocks: {instance_info.num_available_gpu_blocks} "
                 f"num_blocks_all_waiting_requests: {instance_info.num_blocks_all_waiting_requests} "
                 f"num_running_requests: {instance_info.num_running_requests} "
@@ -159,7 +160,7 @@ class DispatchLoadComputation(LoadComputationStrategy):
                 return -np.inf
             max_running_requests = 256
 
-            max_used_gpu_blocks = 6000
+            max_used_gpu_blocks = 7000
             max_used_gpu_blocks = min(
                 max_used_gpu_blocks, instance_info.num_total_gpu_blocks
             )
@@ -170,7 +171,7 @@ class DispatchLoadComputation(LoadComputationStrategy):
                 - instance_info.num_blocks_all_waiting_requests
             )
 
-            instance_load = max(num_requests, max_running_requests) / (
+            instance_load = min(num_requests, max_running_requests) / (
                 num_available_gpu_blocks * throughput
             )
 
