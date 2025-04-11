@@ -151,7 +151,7 @@ class DispatchLoadComputation(LoadComputationStrategy):
             if instance_info.num_total_gpu_blocks > 20000:
                 throughput = 1.0
             else:
-                throughput = 0.15
+                throughput = 0.5
 
             num_requests = (
                 instance_info.num_running_requests + instance_info.num_waiting_requests
