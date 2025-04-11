@@ -169,7 +169,7 @@ class DispatchLoadComputation(LoadComputationStrategy):
             )
 
             num_available_gpu_blocks = (
-                instance_info.max_used_gpu_blocks
+                max_used_gpu_blocks
                 - instance_info.num_used_gpu_blocks
                 - instance_info.num_blocks_all_waiting_requests
             )
