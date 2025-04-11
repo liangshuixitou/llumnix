@@ -166,7 +166,7 @@ class DispatchLoadComputation(LoadComputationStrategy):
                 instance_info.num_used_gpu_blocks
                 + instance_info.num_blocks_all_waiting_requests
             ) / instance_info.num_total_gpu_blocks
-            memory_load = memory_use_ratio * num_requests
+            memory_load = memory_use_ratio 
             memory_weight = 1 / (1 + np.exp(-10 * (memory_use_ratio - 0.1)))
 
             instance_load = (1 + compute_load * compute_weight) * (
