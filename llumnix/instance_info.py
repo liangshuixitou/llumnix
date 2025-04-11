@@ -170,9 +170,12 @@ class DispatchLoadComputation(LoadComputationStrategy):
                 - instance_info.num_used_gpu_blocks
                 - instance_info.num_blocks_all_waiting_requests
             )
+            avg_seq_len = np.mean(
+                instance_info.running_seq_lens + instance_info.waiting_seq_lens
+            )
 
             instance_load = -(num_available_gpu_blocks * throughput) / min(
-                num_requests, max_running_requests
+                num_requests * avg_seq_len, max_running_requests * avg_seq_len
             )
 
             logger.info(
