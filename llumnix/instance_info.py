@@ -161,7 +161,7 @@ class DispatchLoadComputation(LoadComputationStrategy):
             max_running_requests = 256
 
             if instance_info.num_total_gpu_blocks > 20000:
-                max_used_gpu_blocks = instance_info.num_total_gpu_blocks - 15000
+                max_used_gpu_blocks = instance_info.num_total_gpu_blocks - 17000
             else:
                 max_used_gpu_blocks = instance_info.num_total_gpu_blocks
             max_used_gpu_blocks = min(
@@ -175,7 +175,10 @@ class DispatchLoadComputation(LoadComputationStrategy):
             )
             num_available_gpu_blocks = max(1, num_available_gpu_blocks)
 
-            instance_load = num_requests / (num_available_gpu_blocks * throughput)
+            sign = np.sign(num_available_gpu_blocks)
+            instance_load = (
+                -(abs(num_available_gpu_blocks) * throughput * sign) / num_requests
+            )
 
             logger.info(
                 f"instance_load: {instance_load} "
