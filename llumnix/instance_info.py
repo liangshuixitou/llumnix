@@ -151,44 +151,27 @@ class DispatchLoadComputation(LoadComputationStrategy):
             if instance_info.num_total_gpu_blocks > 20000:
                 throughput = 1.0
             else:
-                throughput = 0.85
+                throughput = 0.70
 
             num_requests = (
                 instance_info.num_running_requests + instance_info.num_waiting_requests
             )
             if num_requests == 0:
                 return -np.inf
-            max_running_requests = 256
 
-            if instance_info.num_total_gpu_blocks > 20000:
-                max_used_gpu_blocks = (
-                    instance_info.num_total_gpu_blocks
-                    - 12000
-                    + instance_info.num_waiting_requests * 125
-                )
-            else:
-                max_used_gpu_blocks = instance_info.num_total_gpu_blocks
-            max_used_gpu_blocks = min(
-                max_used_gpu_blocks, instance_info.num_total_gpu_blocks
+            compute_load = num_requests / 256
+            compute_weight = throughput
+
+            memory_use_ratio = (
+                instance_info.num_used_gpu_blocks
+                + instance_info.num_blocks_all_waiting_requests
+            ) / instance_info.num_total_gpu_blocks
+            memory_load = memory_use_ratio * num_requests
+            memory_weight = 1 / (1 + np.exp(-10 * (memory_use_ratio - 0.1)))
+
+            instance_load = (1 + compute_load * compute_weight) * (
+                1 + memory_weight * memory_load
             )
-
-            num_available_gpu_blocks = (
-                max_used_gpu_blocks
-                - instance_info.num_used_gpu_blocks
-                - instance_info.num_blocks_all_waiting_requests
-            )
-            if num_available_gpu_blocks < 0:
-                throughput = 1 / throughput
-            instance_load = -(num_available_gpu_blocks * throughput) / num_requests
-
-            logger.info(
-                f"instance_load: {instance_load} "
-                f"num_available_gpu_blocks: {num_available_gpu_blocks} "
-                f"max_used_gpu_blocks: {max_used_gpu_blocks} "
-                f"num_requests: {num_requests} "
-                f"max_running_requests: {max_running_requests}"
-            )
-
         return instance_load
 
 
