@@ -154,7 +154,7 @@ class DispatchLoadComputation(LoadComputationStrategy):
                 if instance_info.num_waiting_requests > 0:
                     throughput = 0.1
                 else:
-                    throughput = 0.5
+                    throughput = 0.7
 
             num_requests = (
                 instance_info.num_running_requests + instance_info.num_waiting_requests
