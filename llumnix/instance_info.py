@@ -173,7 +173,6 @@ class DispatchLoadComputation(LoadComputationStrategy):
                 - instance_info.num_used_gpu_blocks
                 - instance_info.num_blocks_all_waiting_requests
             )
-            num_available_gpu_blocks = max(1, num_available_gpu_blocks)
             if num_available_gpu_blocks < 0:
                 throughput = 1 / throughput
             instance_load = -(num_available_gpu_blocks * throughput) / num_requests
