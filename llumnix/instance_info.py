@@ -149,7 +149,7 @@ class DispatchLoadComputation(LoadComputationStrategy):
             instance_load = (num_available_gpu_blocks / num_requests) * (-1)
         elif self.load_metric == "virtual_usage":
             if instance_info.num_total_gpu_blocks > 20000:
-                throughput = 1.5
+                throughput = 1.2
             else:
                 throughput = 1.0
 
@@ -169,7 +169,7 @@ class DispatchLoadComputation(LoadComputationStrategy):
             memory_load = memory_use_ratio
             memory_weight = 1 / (1 + np.exp(-10 * (memory_use_ratio - 0.2)))
 
-            instance_load = (compute_load * compute_weight) * (
+            instance_load = (compute_load * compute_weight) + (
                 memory_weight * memory_load
             )
             logger.info(
@@ -183,8 +183,8 @@ class DispatchLoadComputation(LoadComputationStrategy):
                 f"  Memory Weight: {memory_weight:.3f}\n"
                 f"  Final Instance Load: {instance_load:.3f}\n"
                 f"  Components:\n"
-                f"    - Compute Component: {1 + compute_load * compute_weight:.3f}\n"
-                f"    - Memory Component: {1 + memory_weight * memory_load:.3f}"
+                f"    - Compute Component: {compute_load * compute_weight:.3f}\n"
+                f"    - Memory Component: {memory_weight * memory_load:.3f}"
             )
         return instance_load
 
