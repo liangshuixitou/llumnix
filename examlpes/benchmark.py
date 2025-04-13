@@ -11,10 +11,10 @@ BENCH_TEST_TIMEOUT_MINS = 30
 
 device_count = torch.cuda.device_count()
 ip = "127.0.1.1"
-base_port = 37001
+base_port = 37000
 model = "/data/model/Qwen2.5-3B"
-num_prompts = 1000
-qps = 40
+num_prompts = 1500
+qps = 17.5
 verbose = False
 
 
