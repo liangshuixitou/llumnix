@@ -5,6 +5,7 @@ import subprocess
 import asyncio
 import time
 import ray
+import psutil
 
 from llumnix.logging.logger import init_logger
 from llumnix.constants import MAX_MANAGER_RETRY_TIMES, RETRY_MANAGER_INTERVAL
@@ -38,9 +39,11 @@ class EntrypointsContext:
 
 
 def get_ip_address():
-    hostname = socket.gethostname()
-    ip_address = socket.gethostbyname(hostname)
-    return ip_address
+    interfaces = psutil.net_if_addrs()
+    for interface, addrs in interfaces.items():
+        for addr in addrs:
+            if addr.family == socket.AF_INET and not addr.address.startswith("127."):
+                return addr.address
 
 
 def is_gpu_available() -> bool:

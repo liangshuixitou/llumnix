@@ -33,6 +33,9 @@ from llumnix.backends.backend_interface import BackendType
 from llumnix.entrypoints.utils import LaunchMode, is_gpu_available
 from llumnix.constants import SERVER_TIMEOUT_KEEP_ALIVE
 from llumnix.metrics.timestamps import set_timestamp
+from llumnix.entrypoints.vllm.web.types import InferenceInstanceInfo, APIResponse
+from llumnix.llumlet.llumlet import Llumlet
+from llumnix.instance_info import InstanceInfo
 
 # Code file with __main__ should set the logger name to inherit the llumnix logger configuration.
 logger = init_logger("llumnix.entrypoints.vllm.api_server")
@@ -47,6 +50,7 @@ async def lifespan(fastapi_app: FastAPI):
     asyncio.create_task(llumnix_client.get_request_outputs_loop())
     yield
     llumnix_client.request_output_queue.cleanup()
+
 
 app = FastAPI(lifespan=lifespan)
 
@@ -73,15 +77,15 @@ async def generate(request: Request) -> Response:
     request_id = random_uuid()
 
     # Use LlumnixClientVLLM's generate and abort api to replace with vLLM AsyncLLMEngine's generate and abort api.
-    results_generator = await llumnix_client.generate(prompt, sampling_params, request_id)
+    results_generator = await llumnix_client.generate(
+        prompt, sampling_params, request_id
+    )
 
     # Streaming case
     async def stream_results() -> AsyncGenerator[bytes, None]:
         async for request_output in results_generator.generator():
             prompt = request_output.prompt
-            text_outputs = [
-                prompt + output.text for output in request_output.outputs
-            ]
+            text_outputs = [prompt + output.text for output in request_output.outputs]
             ret = {"text": text_outputs}
             yield (json.dumps(ret) + "\0").encode("utf-8")
 
@@ -103,6 +107,7 @@ async def generate(request: Request) -> Response:
     ret = {"text": text_outputs}
     return JSONResponse(ret)
 
+
 @app.post("/generate_benchmark")
 async def generate_benchmark(request: Request) -> Response:
     """Generate completion for the request.
@@ -121,7 +126,9 @@ async def generate_benchmark(request: Request) -> Response:
 
     start = time.time()
 
-    results_generator = await llumnix_client.generate(prompt, sampling_params, request_id)
+    results_generator = await llumnix_client.generate(
+        prompt, sampling_params, request_id
+    )
 
     # Non-streaming case
     final_output = None
@@ -133,40 +140,82 @@ async def generate_benchmark(request: Request) -> Response:
             await llumnix_client.abort(request_id)
             return Response(status_code=499)
         now = time.time()
-        per_token_latency.append([now, (now - start)*1000])
+        per_token_latency.append([now, (now - start) * 1000])
         start = now
         final_output = request_output
-        set_timestamp(request_output, 'api_server_generate_timestamp_end', now)
-        if hasattr(request_output, 'request_timestamps'):
-            per_token_latency_breakdown_list.append(request_output.request_timestamps.to_latency_breakdown_dict())
+        set_timestamp(request_output, "api_server_generate_timestamp_end", now)
+        if hasattr(request_output, "request_timestamps"):
+            per_token_latency_breakdown_list.append(
+                request_output.request_timestamps.to_latency_breakdown_dict()
+            )
     assert final_output is not None
 
     if llumnix_client.log_requests:
         llumnix_client.num_finished_requests += 1
         logger.info("entrypoints finished request {}".format(request_id))
-        logger.info("num_finished_requests {}".format(llumnix_client.num_finished_requests))
+        logger.info(
+            "num_finished_requests {}".format(llumnix_client.num_finished_requests)
+        )
 
     generation = final_output.outputs[0].text
     num_output_tokens = len(final_output.outputs[0].token_ids)
     num_input_tokens = len(final_output.prompt_token_ids)
-    expected_resp_len = request_dict['max_tokens']
+    expected_resp_len = request_dict["max_tokens"]
     if not max(expected_resp_len, 1) == max(num_output_tokens, 1):
         "request_id={}, expected_resp_len={}, num_output_tokens={}, num_input_tokens={}".format(
-            request_id, expected_resp_len, num_output_tokens, num_input_tokens)
+            request_id, expected_resp_len, num_output_tokens, num_input_tokens
+        )
     ret = {
-        'request_id': request_id,
-        'generated_text': generation,
-        'num_output_tokens_cf': num_output_tokens,
-        'per_token_latency': per_token_latency,
+        "request_id": request_id,
+        "generated_text": generation,
+        "num_output_tokens_cf": num_output_tokens,
+        "per_token_latency": per_token_latency,
     }
     if per_token_latency_breakdown_list:
-        ret['per_token_latency_breakdown_list'] = per_token_latency_breakdown_list
+        ret["per_token_latency_breakdown_list"] = per_token_latency_breakdown_list
     return JSONResponse(ret)
 
 
 @app.get("/is_ready")
 async def is_ready() -> bool:
     return await llumnix_client.is_ready()
+
+
+@app.get("/instance_list")
+async def get_instance_list() -> Response:
+    """Get the list of the instance."""
+    instance_list: dict[str, Llumlet] = llumnix_client.instances
+    instance_infos = []
+
+    for instance in instance_list.values():
+        instance_info: InstanceInfo = await instance.get_instance_info.remote()
+        inference_info = InferenceInstanceInfo(
+            instance_id=instance_info.instance_id,
+            gpu_count=1,
+            request_count=instance_info.num_running_requests
+            + instance_info.num_waiting_requests,
+            running_request_count=instance_info.num_running_requests,
+            waiting_request_count=instance_info.num_waiting_requests,
+            total_gpu_blocks_count=instance_info.num_total_gpu_blocks,
+            used_gpu_blocks_count=instance_info.num_used_gpu_blocks,
+            waiting_gpu_blocks_count=instance_info.num_blocks_all_waiting_requests,
+        )
+        instance_infos.append(inference_info)
+
+    return JSONResponse(
+        APIResponse(code=0, message="success", data=instance_infos).model_dump()
+    )
+
+
+@app.get("/instance_log/{instance_id}")
+async def get_instance_log(instance_id: str) -> Response:
+    """Get the log of the instance."""
+    LOG_FILE = f"/home/l1hy/project/llumnix/vllm.serve.vu.log"
+    with open(LOG_FILE, "r") as f:
+        instance_log = f.read()
+    return JSONResponse(
+        APIResponse(code=0, message="success", data=instance_log).model_dump()
+    )
 
 
 if __name__ == "__main__":
@@ -176,13 +225,19 @@ if __name__ == "__main__":
     parser.add_argument("--port", type=int)
     parser.add_argument("--ssl-keyfile", type=str)
     parser.add_argument("--ssl-certfile", type=str)
-    parser.add_argument("--log-level", type=str, choices=["debug", "info", "warning", "error"])
+    parser.add_argument(
+        "--log-level", type=str, choices=["debug", "info", "warning", "error"]
+    )
 
     cli_args = add_cli_args(parser)
     cfg = get_llumnix_config(cli_args.config_file, cli_args)
 
-    entrypoints_args, manager_args, instance_args, engine_args = get_args(cfg, LaunchMode.LOCAL, parser, cli_args)
-    backend_type = BackendType.VLLM if not instance_args.simulator_mode else BackendType.SIM_VLLM
+    entrypoints_args, manager_args, instance_args, engine_args = get_args(
+        cfg, LaunchMode.LOCAL, parser, cli_args
+    )
+    backend_type = (
+        BackendType.VLLM if not instance_args.simulator_mode else BackendType.SIM_VLLM
+    )
     launch_args = LaunchArgs(launch_mode=LaunchMode.LOCAL, backend_type=backend_type)
 
     # Launch or connect to the ray cluster for multi-node serving.
@@ -190,15 +245,23 @@ if __name__ == "__main__":
 
     # if gpu is not available, it means that this node is head pod without any llumnix components
     if is_gpu_available():
-        entrypoints_context = setup_llumnix(entrypoints_args, manager_args, instance_args, engine_args, launch_args)
+        entrypoints_context = setup_llumnix(
+            entrypoints_args, manager_args, instance_args, engine_args, launch_args
+        )
         llumnix_client = LlumnixClientVLLM(entrypoints_context)
 
         # Start the api server after all the components of llumnix are ready.
-        logger.info("Start api server on '{}:{}'.".format(entrypoints_args.host, entrypoints_args.port))
-        uvicorn.run(app,
-                    host=entrypoints_args.host,
-                    port=entrypoints_args.port,
-                    log_level=entrypoints_args.log_level,
-                    timeout_keep_alive=SERVER_TIMEOUT_KEEP_ALIVE,
-                    ssl_keyfile=entrypoints_args.ssl_keyfile,
-                    ssl_certfile=entrypoints_args.ssl_certfile)
+        logger.info(
+            "Start api server on '{}:{}'.".format(
+                entrypoints_args.host, entrypoints_args.port
+            )
+        )
+        uvicorn.run(
+            app,
+            host=entrypoints_args.host,
+            port=entrypoints_args.port,
+            log_level=entrypoints_args.log_level,
+            timeout_keep_alive=SERVER_TIMEOUT_KEEP_ALIVE,
+            ssl_keyfile=entrypoints_args.ssl_keyfile,
+            ssl_certfile=entrypoints_args.ssl_certfile,
+        )
