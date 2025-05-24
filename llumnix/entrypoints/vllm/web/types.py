@@ -20,3 +20,6 @@ class InferenceInstanceInfo(BaseModel):
     waiting_gpu_blocks_count: int
 
 
+class BenchmarkRequest(BaseModel):
+    qps: float
+    num_prompts: int

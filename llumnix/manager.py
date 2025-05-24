@@ -1116,3 +1116,15 @@ class Manager:
                     ]
                 )
         self.instance_info_file.flush()
+
+    async def get_all_instances_info(self):
+        """获取所有instance的详细信息"""
+        instance_infos = []
+        for instance_id, instance in self.instances.items():
+            try:
+                info = await instance.get_instance_info.remote()
+                instance_infos.append(info)
+            except (ray.exceptions.RayActorError, KeyError):
+                logger.warning(f"Instance {instance_id} is not available")
+                continue
+        return instance_infos

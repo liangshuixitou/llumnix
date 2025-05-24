@@ -19,6 +19,8 @@ import json
 from fastapi import FastAPI, Request
 from fastapi.responses import JSONResponse, Response, StreamingResponse
 import uvicorn
+import subprocess
+import os
 
 from vllm.sampling_params import SamplingParams
 
@@ -33,9 +35,12 @@ from llumnix.backends.backend_interface import BackendType
 from llumnix.entrypoints.utils import LaunchMode, is_gpu_available
 from llumnix.constants import SERVER_TIMEOUT_KEEP_ALIVE
 from llumnix.metrics.timestamps import set_timestamp
-from llumnix.entrypoints.vllm.web.types import InferenceInstanceInfo, APIResponse
-from llumnix.llumlet.llumlet import Llumlet
-from llumnix.instance_info import InstanceInfo
+from llumnix.entrypoints.vllm.web.types import (
+    InferenceInstanceInfo,
+    APIResponse,
+    BenchmarkRequest,
+)
+from llumnix.entrypoints.vllm.web.utils import generate_bench_command
 
 # Code file with __main__ should set the logger name to inherit the llumnix logger configuration.
 logger = init_logger("llumnix.entrypoints.vllm.api_server")
@@ -184,11 +189,12 @@ async def is_ready() -> bool:
 @app.get("/instance_list")
 async def get_instance_list() -> Response:
     """Get the list of the instance."""
-    instance_list: dict[str, Llumlet] = llumnix_client.instances
-    instance_infos = []
+    # 使用manager的get_all_instances_info API获取所有instance信息
+    instance_infos = await llumnix_client.get_all_instances_info()
 
-    for instance in instance_list.values():
-        instance_info: InstanceInfo = await instance.get_instance_info.remote()
+    # 转换为InferenceInstanceInfo格式
+    inference_infos = []
+    for instance_info in instance_infos:
         inference_info = InferenceInstanceInfo(
             instance_id=instance_info.instance_id,
             gpu_count=1,
@@ -200,10 +206,10 @@ async def get_instance_list() -> Response:
             used_gpu_blocks_count=instance_info.num_used_gpu_blocks,
             waiting_gpu_blocks_count=instance_info.num_blocks_all_waiting_requests,
         )
-        instance_infos.append(inference_info)
+        inference_infos.append(inference_info)
 
     return JSONResponse(
-        APIResponse(code=0, message="success", data=instance_infos).model_dump()
+        APIResponse(code=0, message="success", data=inference_infos).model_dump()
     )
 
 
@@ -216,6 +222,96 @@ async def get_instance_log(instance_id: str) -> Response:
     return JSONResponse(
         APIResponse(code=0, message="success", data=instance_log).model_dump()
     )
+
+
+@app.post("/benchmark")
+async def benchmark_start(request: Request) -> Response:
+    """Benchmark the instance."""
+    request_dict = await request.json()
+    qps = request_dict.pop("qps")
+    num_prompts = request_dict.pop("num_prompts")
+
+    # 使用时间戳和随机字符串生成benchmark_id
+    timestamp = int(time.time())
+    random_str = random_uuid()[:8]  # 取随机字符串的前8位
+    benchmark_id = f"{timestamp}_{random_str}"
+
+    bench_command = generate_bench_command(
+        ip_ports=f"10.212.70.38:37000",
+        model="/data/model/Qwen2.5-3B",
+        num_prompts=num_prompts,
+        dataset_type="sharegpt",
+        dataset_path="/data/dataset/sharegpt4/sharegpt_gpt4.jsonl",
+        qps=qps,
+        results_filename=f"{benchmark_id}.out",
+        verbose=False,
+    )
+
+    try:
+        # 直接启动进程，将输出重定向到DEVNULL
+        process = subprocess.Popen(
+            bench_command,
+            shell=True,
+            stdout=subprocess.DEVNULL,
+            stderr=subprocess.DEVNULL,
+        )
+
+        # 立即返回结果
+        return JSONResponse(
+            APIResponse(
+                code=0,
+                message="success",
+                data={
+                    "benchmark_id": benchmark_id,
+                    "command": bench_command,
+                    "pid": process.pid,
+                },
+            ).model_dump()
+        )
+    except Exception as e:
+        return JSONResponse(
+            APIResponse(
+                code=1,
+                message=f"Failed to start benchmark: {str(e)}",
+                data={
+                    "benchmark_id": benchmark_id,
+                    "command": bench_command,
+                    "pid": 0,
+                },
+            ).model_dump()
+        )
+
+
+@app.get("/benchmark_result/{benchmark_id}")
+async def benchmark_result(benchmark_id: str) -> Response:
+    """Get the benchmark result for the given benchmark_id."""
+    # Get the llumnix root directory
+    llumnix_root = os.path.dirname(
+        os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
+    )
+    result_file = os.path.join(llumnix_root, f"bench_{benchmark_id}.out")
+    try:
+        with open(result_file, "r") as f:
+            result_content = f.read()
+        return JSONResponse(
+            APIResponse(code=0, message="success", data=result_content).model_dump()
+        )
+    except FileNotFoundError:
+        return JSONResponse(
+            APIResponse(
+                code=1,
+                message=f"Benchmark result file {result_file} not found",
+                data=None,
+            ).model_dump()
+        )
+    except Exception as e:
+        return JSONResponse(
+            APIResponse(
+                code=1,
+                message=f"Error reading benchmark result: {str(e)}",
+                data=None,
+            ).model_dump()
+        )
 
 
 if __name__ == "__main__":

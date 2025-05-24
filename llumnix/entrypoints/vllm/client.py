@@ -184,3 +184,13 @@ class LlumnixClientVLLM:
                 if request_output.finished:
                     self.request_streams[request_id].finish()
                     del self.request_streams[request_id]
+
+    async def get_all_instances_info(self):
+        """从manager获取所有instance信息"""
+        try:
+            # 调用manager的remote方法获取所有instance信息
+            instance_infos = await self.manager.get_all_instances_info.remote()
+            return instance_infos
+        except ray.exceptions.RayActorError:
+            logger.warning("Manager is unavailable")
+            return []
